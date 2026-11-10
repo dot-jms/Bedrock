@@ -7,25 +7,25 @@
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="gate">
-  <canvas class="bedrock-bg" id="bg" aria-hidden="true"></canvas>
+<canvas id="space" aria-hidden="true"></canvas>
+<div class="glow" aria-hidden="true"></div>
 
-  <form class="gate-card" id="form" autocomplete="off">
+<main class="stage">
+  <form class="gate-card glass" id="form" autocomplete="off">
     <img src="favicon.png" alt="">
-    <h1>Bedrock</h1>
-    <p>Enter the access key to continue.</p>
+    <h1 class="grad-text">BEDROCK</h1>
+    <p id="lead">Enter your access key to continue.</p>
     <label class="sr-only" for="key">Access key</label>
-    <input class="field" id="key" type="password" placeholder="Access key" autocomplete="off" required>
+    <input class="field" id="key" type="password" placeholder="ACCESS KEY" autocomplete="off" required>
     <button class="btn btn-primary" id="go" type="submit">Enter</button>
     <p class="gate-msg" id="msg" role="alert"></p>
   </form>
-
-  <div class="gate-credit">Made by James George</div>
-</div>
+</main>
+<div class="credit">Made by James George</div>
 
 <script src="shared.js"></script>
 <script>
@@ -33,31 +33,55 @@
   // Add or change keys here. Matching ignores upper/lower case.
   const KEYS = ['6-7', 'jamb0ne', '0bs1d14n', 'b3dr0ck'];
 
-  if (Bedrock.hasAccess()) { location.replace('portal.html'); return; }
-
-  const bg = document.getElementById('bg');
-  function paintBg() { Bedrock.paint(bg, 'gate', { cell: 8, tint: [0, 0, 0] }); }
-  paintBg();
-  let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(paintBg, 150); });
+  Bedrock.space(document.getElementById('space'));
 
   const form = document.getElementById('form');
   const input = document.getElementById('key');
   const msg = document.getElementById('msg');
   const go = document.getElementById('go');
-  input.focus();
+  const lead = document.getElementById('lead');
+
+  // Opens Bedrock in an about:blank tab and closes this one.
+  function launch() {
+    const portal = new URL('portal.html', location.href).href;
+    const icon = new URL('favicon.png', location.href).href;
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) {                       // pop-up blocked: open here instead
+      location.href = portal;
+      return;
+    }
+    tab.document.open();
+    tab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8"><title>Bedrock</title>' +
+      '<link rel="icon" href="' + icon + '">' +
+      '<style>html,body{margin:0;height:100%;background:#04040b;overflow:hidden}' +
+      'iframe{border:0;width:100%;height:100%;display:block}</style></head>' +
+      '<body><iframe src="' + portal + '" allow="fullscreen"></iframe></body></html>'
+    );
+    tab.document.close();
+    try { setTimeout(() => window.close(), 400); } catch (_) {}
+  }
+
+  if (Bedrock.hasAccess()) {
+    // Already signed in on this browser: no key needed, but opening a tab needs a click.
+    input.hidden = true; input.required = false;
+    lead.textContent = 'You\u2019re signed in.';
+    go.textContent = 'Open Bedrock';
+    go.focus();
+  } else {
+    input.focus();
+  }
 
   input.addEventListener('input', () => { input.classList.remove('bad'); msg.textContent = ''; });
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const k = input.value.trim().toLowerCase();
-    if (KEYS.includes(k)) {
+    if (Bedrock.hasAccess() || KEYS.includes(input.value.trim().toLowerCase())) {
       Bedrock.grant();
-      go.disabled = true;
-      location.href = 'portal.html';
+      launch();
     } else {
       input.classList.add('bad');
-      msg.textContent = 'That key isn’t valid. Check it and try again.';
+      msg.textContent = 'That key isn\u2019t valid. Check it and try again.';
       input.select();
     }
   });

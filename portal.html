@@ -7,29 +7,41 @@
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script>
-  // Send people without a key back to the gate before anything renders.
   try { if (localStorage.getItem('bedrock_access_v2') !== 'granted') location.replace('index.html'); }
   catch (_) { location.replace('index.html'); }
 </script>
 </head>
 <body>
+<canvas id="space" aria-hidden="true"></canvas>
+<div class="glow" aria-hidden="true"></div>
 
-<header class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="#/home"><img src="favicon.png" alt=""><span>Bedrock</span></a>
-    <nav class="nav" aria-label="Main">
-      <a href="#/home" data-route="home">Home</a>
-      <a href="#/games" data-route="games">Games</a>
-    </nav>
-    <div class="spacer"></div>
-    <button class="exit-btn" id="exit" type="button" title="Leave this page immediately (press ` )">Quick exit</button>
+<div class="shell">
+  <div class="frame glass">
+    <header class="frame-head">
+      <img src="favicon.png" alt="">
+      <h1 class="grad-text">BEDROCK</h1>
+      <div class="sp"></div>
+      <button class="exit-btn" id="exit" type="button">Quick exit</button>
+    </header>
+
+    <div class="cols">
+      <nav class="side" aria-label="Main">
+        <a href="#/home" data-route="home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+          Home
+        </a>
+        <a href="#/games" data-route="games">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 10.5v4M5 12.5h4"/><circle cx="16" cy="11.5" r=".6"/><circle cx="18.5" cy="13.5" r=".6"/></svg>
+          Games
+        </a>
+      </nav>
+      <section class="content" id="view"></section>
+    </div>
   </div>
-</header>
-
-<main id="view"></main>
+</div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="shared.js"></script>
@@ -38,190 +50,124 @@
 (function () {
   const GAMES = window.BEDROCK_GAMES;
   const CATS = window.BEDROCK_CATEGORIES;
-  const TINTS = window.BEDROCK_TINTS;
+  const HUES = { arcade: 165, puzzle: 265, strategy: 38, multiplayer: 212, classic: 350, creative: 130 };
   const view = document.getElementById('view');
   const toast = document.getElementById('toast');
+  Bedrock.space(document.getElementById('space'));
 
-  /* ---------- storage (favorites, recents) ---------- */
   function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (_) { return d; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
   let favs = load('bedrock_favs', []);
-  let recents = load('bedrock_recents', []);
 
-  function showToast(text) {
-    toast.textContent = text;
-    toast.classList.add('show');
-    clearTimeout(showToast.t);
-    showToast.t = setTimeout(() => toast.classList.remove('show'), 1800);
+  function say(text) {
+    toast.textContent = text; toast.classList.add('show');
+    clearTimeout(say.t); say.t = setTimeout(() => toast.classList.remove('show'), 1800);
   }
 
-  /* ---------- icons ---------- */
-  const SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-  const STAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/></svg>';
+  const SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  const STAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/></svg>';
 
-  /* ---------- tiles ---------- */
-  function tile(g) {
-    const isFav = favs.includes(g.id);
+  function renderHome() {
+    view.innerHTML =
+      '<div class="home">' +
+        '<h2 class="grad-text">Welcome to Bedrock</h2>' +
+        '<p class="lead">A collection of browser games. Pick one and it opens in a new tab.</p>' +
+        '<div class="actions"><a class="btn btn-primary" href="#/games">Browse games</a></div>' +
+        '<div class="panel"><h3>Shortcuts</h3><ul class="keys">' +
+          '<li><span>Leave this page immediately</span><kbd>`</kbd></li>' +
+          '<li><span>Go to Home</span><kbd>Alt + 1</kbd></li>' +
+          '<li><span>Go to Games</span><kbd>Alt + 2</kbd></li>' +
+        '</ul></div>' +
+      '</div>';
+  }
+
+  function cell(g) {
+    const hue = HUES[g.cat];
+    const on = favs.includes(g.id);
     const el = document.createElement('div');
-    el.style.position = 'relative';
+    el.className = 'cell';
     el.innerHTML =
-      '<a class="tile" href="' + g.url + '" target="_blank" rel="noopener noreferrer" data-id="' + g.id + '">' +
-        '<div class="tile-art"><canvas aria-hidden="true"></canvas><span class="glyph" aria-hidden="true">' + g.name.trim()[0] + '</span></div>' +
-        '<div class="tile-body"><h3 class="tile-title"></h3><p class="tile-desc"></p></div>' +
+      '<a class="tile" href="' + g.url + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="badge" aria-hidden="true" style="background:linear-gradient(135deg,hsl(' + hue + ' 70% 48%),hsl(' + (hue + 40) + ' 70% 32%))">' + g.name.trim()[0] + '</span>' +
+        '<span class="tile-text"><h3></h3><p></p></span>' +
       '</a>' +
-      '<button class="fav" type="button" aria-pressed="' + isFav + '" aria-label="' + (isFav ? 'Remove ' : 'Add ') + g.name + (isFav ? ' from favorites' : ' to favorites') + '">' + STAR + '</button>';
-    el.querySelector('.tile-title').textContent = g.name;
-    el.querySelector('.tile-desc').textContent = g.desc;
-
-    el.querySelector('.tile').addEventListener('click', () => {
-      recents = [g.id].concat(recents.filter(x => x !== g.id)).slice(0, 8);
-      save('bedrock_recents', recents);
-    });
-    el.querySelector('.fav').addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const on = !favs.includes(g.id);
-      favs = on ? favs.concat(g.id) : favs.filter(x => x !== g.id);
+      '<button class="fav" type="button" aria-pressed="' + on + '">' + STAR + '</button>';
+    el.querySelector('h3').textContent = g.name;
+    el.querySelector('p').textContent = g.desc;
+    el.querySelector('.fav').setAttribute('aria-label', (on ? 'Remove ' : 'Add ') + g.name + (on ? ' from favorites' : ' to favorites'));
+    el.querySelector('.fav').addEventListener('click', () => {
+      favs = on ? favs.filter(x => x !== g.id) : favs.concat(g.id);
       save('bedrock_favs', favs);
-      showToast(on ? 'Added ' + g.name + ' to favorites' : 'Removed ' + g.name + ' from favorites');
-      render();
+      say(on ? 'Removed ' + g.name + ' from favorites' : 'Added ' + g.name + ' to favorites');
+      update();
     });
     return el;
   }
 
-  function paintTiles(root) {
-    root.querySelectorAll('.tile').forEach(a => {
-      const g = GAMES.find(x => x.id === a.dataset.id);
-      Bedrock.paint(a.querySelector('canvas'), g.id, { cell: 5, tint: TINTS[g.cat] });
-    });
-  }
-
-  function grid(list, emptyMsg) {
-    const wrap = document.createElement('div');
-    wrap.className = 'grid';
+  let state, qInput, chips;
+  function update() {
+    chips.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === state.cat)));
+    const q = qInput.value.trim().toLowerCase();
+    const list = GAMES.filter(g =>
+      (state.cat === 'all' || (state.cat === 'favs' ? favs.includes(g.id) : g.cat === state.cat)) &&
+      (!q || g.name.toLowerCase().includes(q) || g.desc.toLowerCase().includes(q) || g.cat.includes(q)));
+    const res = document.getElementById('results');
+    res.innerHTML = '';
     if (!list.length) {
-      wrap.innerHTML = '<div class="empty"><strong></strong><span></span></div>';
-      wrap.querySelector('strong').textContent = emptyMsg[0];
-      wrap.querySelector('span').textContent = emptyMsg[1];
-      return wrap;
-    }
-    list.forEach(g => wrap.appendChild(tile(g)));
-    return wrap;
-  }
-
-  /* ---------- views ---------- */
-  function renderHome() {
-    view.innerHTML =
-      '<section class="hero">' +
-        '<canvas aria-hidden="true" id="heroArt"></canvas>' +
-        '<div class="hero-body">' +
-          '<h1>Bedrock</h1>' +
-          '<p>' + GAMES.length + ' browser games. Pick one and it opens in a new tab.</p>' +
-          '<form class="search" id="heroSearch" role="search">' + SEARCH +
-            '<label class="sr-only" for="q">Search games</label>' +
-            '<input id="q" type="search" placeholder="Search games" autocomplete="off">' +
-          '</form>' +
-        '</div>' +
-      '</section>';
-
-    const recentGames = recents.map(id => GAMES.find(g => g.id === id)).filter(Boolean).slice(0, 6);
-    const favGames = favs.map(id => GAMES.find(g => g.id === id)).filter(Boolean);
-
-    if (recentGames.length) addSection('Recently played', recentGames);
-    if (favGames.length) addSection('Favorites', favGames);
-    addSection('All games', GAMES.slice(0, 10), true);
-
-    Bedrock.paint(document.getElementById('heroArt'), 'hero', { cell: 10, tint: [0, 0, 0] });
-
-    document.getElementById('heroSearch').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const q = document.getElementById('q').value.trim();
-      location.hash = '#/games' + (q ? '?q=' + encodeURIComponent(q) : '');
-    });
-  }
-
-  function addSection(title, list, withLink) {
-    const head = document.createElement('div');
-    head.className = 'section-head';
-    head.innerHTML = '<h2></h2>' + (withLink ? '<a href="#/games">View all</a>' : '');
-    head.querySelector('h2').textContent = title;
-    view.appendChild(head);
-    const g = grid(list, ['', '']);
-    view.appendChild(g);
-    paintTiles(g);
+      const e = document.createElement('div'); e.className = 'empty';
+      const noFavs = state.cat === 'favs' && !q;
+      e.innerHTML = '<strong></strong><span></span>';
+      e.querySelector('strong').textContent = noFavs ? 'No favorites yet' : 'No games match';
+      e.querySelector('span').textContent = noFavs ? 'Select the star on a game to save it here.' : 'Try a different search or category.';
+      res.appendChild(e);
+    } else list.forEach(g => res.appendChild(cell(g)));
   }
 
   function renderGames(params) {
-    const state = { cat: params.get('cat') || 'all', q: params.get('q') || '' };
-
+    state = { cat: 'all' };
     view.innerHTML =
-      '<div class="library-head">' +
-        '<h1>Games</h1>' +
+      '<div class="lib-head"><h2>Games</h2>' +
         '<form class="search" role="search" onsubmit="return false">' + SEARCH +
           '<label class="sr-only" for="lib-q">Search games</label>' +
           '<input id="lib-q" type="search" placeholder="Search games" autocomplete="off">' +
-        '</form>' +
-      '</div>' +
+        '</form></div>' +
       '<div class="chips" id="chips" role="group" aria-label="Category"></div>' +
-      '<div id="results"></div>';
-
-    const qInput = document.getElementById('lib-q');
-    qInput.value = state.q;
-
-    const chips = document.getElementById('chips');
+      '<div class="grid" id="results"></div>';
+    qInput = document.getElementById('lib-q');
+    chips = document.getElementById('chips');
     CATS.concat([{ id: 'favs', label: 'Favorites' }]).forEach(c => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'chip'; b.textContent = c.label; b.dataset.id = c.id;
       b.addEventListener('click', () => { state.cat = c.id; update(); });
       chips.appendChild(b);
     });
-
-    function update() {
-      chips.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === state.cat)));
-      const q = qInput.value.trim().toLowerCase();
-      let list = GAMES.filter(g =>
-        (state.cat === 'all' || (state.cat === 'favs' ? favs.includes(g.id) : g.cat === state.cat)) &&
-        (!q || g.name.toLowerCase().includes(q) || g.desc.toLowerCase().includes(q) || g.cat.includes(q)));
-      const empty = state.cat === 'favs' && !q
-        ? ['No favorites yet', 'Select the star on a game to save it here.']
-        : ['No games match', 'Try a different search or category.'];
-      const res = document.getElementById('results');
-      res.innerHTML = '';
-      const g = grid(list, empty);
-      res.appendChild(g);
-      paintTiles(g);
-    }
     qInput.addEventListener('input', update);
     update();
-    if (state.q) qInput.focus();
   }
 
-  /* ---------- router ---------- */
   function render() {
-    const raw = location.hash.replace(/^#\/?/, '') || 'home';
-    const [route, query] = raw.split('?');
-    const params = new URLSearchParams(query || '');
-    const name = route === 'games' ? 'games' : 'home';
-    document.querySelectorAll('.nav a').forEach(a => {
+    const name = location.hash.replace(/^#\/?/, '') === 'games' ? 'games' : 'home';
+    document.querySelectorAll('.side a').forEach(a => {
       if (a.dataset.route === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     document.title = name === 'games' ? 'Games – Bedrock' : 'Bedrock';
-    if (name === 'games') renderGames(params); else renderHome();
-    window.scrollTo(0, 0);
+    if (name === 'games') renderGames(); else renderHome();
+    view.scrollTop = 0;
   }
   addEventListener('hashchange', render);
   render();
 
-  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => {
-    const hero = document.getElementById('heroArt');
-    if (hero) Bedrock.paint(hero, 'hero', { cell: 10, tint: [0, 0, 0] });
-  }, 150); });
-
-  /* ---------- quick exit ---------- */
-  function quickExit() { location.replace('https://www.google.com/'); }
+  function quickExit() {
+    // Portal may be inside an about:blank frame, so leave from the top window.
+    try { window.top.location.replace('https://www.google.com/'); }
+    catch (_) { location.replace('https://www.google.com/'); }
+  }
   document.getElementById('exit').addEventListener('click', quickExit);
   document.addEventListener('keydown', (e) => {
-    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName);
+    const typing = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName);
     if (e.key === '`' && !typing) quickExit();
+    if (e.altKey && e.key === '1') { location.hash = '#/home'; e.preventDefault(); }
+    if (e.altKey && e.key === '2') { location.hash = '#/games'; e.preventDefault(); }
   });
 })();
 </script>
