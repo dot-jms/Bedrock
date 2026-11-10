@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bedrock</title>
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>
+  // Send people without a key back to the gate before anything renders.
+  try { if (localStorage.getItem('bedrock_access_v2') !== 'granted') location.replace('index.html'); }
+  catch (_) { location.replace('index.html'); }
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#/home"><img src="favicon.png" alt=""><span>Bedrock</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/home" data-route="home">Home</a>
+      <a href="#/games" data-route="games">Games</a>
+    </nav>
+    <div class="spacer"></div>
+    <button class="exit-btn" id="exit" type="button" title="Leave this page immediately (press ` )">Quick exit</button>
+  </div>
+</header>
+
+<main id="view"></main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="shared.js"></script>
+<script src="games.js"></script>
+<script>
+(function () {
+  const GAMES = window.BEDROCK_GAMES;
+  const CATS = window.BEDROCK_CATEGORIES;
+  const TINTS = window.BEDROCK_TINTS;
+  const view = document.getElementById('view');
+  const toast = document.getElementById('toast');
+
+  /* ---------- storage (favorites, recents) ---------- */
+  function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (_) { return d; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+  let favs = load('bedrock_favs', []);
+  let recents = load('bedrock_recents', []);
+
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  /* ---------- icons ---------- */
+  const SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  const STAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/></svg>';
+
+  /* ---------- tiles ---------- */
+  function tile(g) {
+    const isFav = favs.includes(g.id);
+    const el = document.createElement('div');
+    el.style.position = 'relative';
+    el.innerHTML =
+      '<a class="tile" href="' + g.url + '" target="_blank" rel="noopener noreferrer" data-id="' + g.id + '">' +
+        '<div class="tile-art"><canvas aria-hidden="true"></canvas><span class="glyph" aria-hidden="true">' + g.name.trim()[0] + '</span></div>' +
+        '<div class="tile-body"><h3 class="tile-title"></h3><p class="tile-desc"></p></div>' +
+      '</a>' +
+      '<button class="fav" type="button" aria-pressed="' + isFav + '" aria-label="' + (isFav ? 'Remove ' : 'Add ') + g.name + (isFav ? ' from favorites' : ' to favorites') + '">' + STAR + '</button>';
+    el.querySelector('.tile-title').textContent = g.name;
+    el.querySelector('.tile-desc').textContent = g.desc;
+
+    el.querySelector('.tile').addEventListener('click', () => {
+      recents = [g.id].concat(recents.filter(x => x !== g.id)).slice(0, 8);
+      save('bedrock_recents', recents);
+    });
+    el.querySelector('.fav').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const on = !favs.includes(g.id);
+      favs = on ? favs.concat(g.id) : favs.filter(x => x !== g.id);
+      save('bedrock_favs', favs);
+      showToast(on ? 'Added ' + g.name + ' to favorites' : 'Removed ' + g.name + ' from favorites');
+      render();
+    });
+    return el;
+  }
+
+  function paintTiles(root) {
+    root.querySelectorAll('.tile').forEach(a => {
+      const g = GAMES.find(x => x.id === a.dataset.id);
+      Bedrock.paint(a.querySelector('canvas'), g.id, { cell: 5, tint: TINTS[g.cat] });
+    });
+  }
+
+  function grid(list, emptyMsg) {
+    const wrap = document.createElement('div');
+    wrap.className = 'grid';
+    if (!list.length) {
+      wrap.innerHTML = '<div class="empty"><strong></strong><span></span></div>';
+      wrap.querySelector('strong').textContent = emptyMsg[0];
+      wrap.querySelector('span').textContent = emptyMsg[1];
+      return wrap;
+    }
+    list.forEach(g => wrap.appendChild(tile(g)));
+    return wrap;
+  }
+
+  /* ---------- views ---------- */
+  function renderHome() {
+    view.innerHTML =
+      '<section class="hero">' +
+        '<canvas aria-hidden="true" id="heroArt"></canvas>' +
+        '<div class="hero-body">' +
+          '<h1>Bedrock</h1>' +
+          '<p>' + GAMES.length + ' browser games. Pick one and it opens in a new tab.</p>' +
+          '<form class="search" id="heroSearch" role="search">' + SEARCH +
+            '<label class="sr-only" for="q">Search games</label>' +
+            '<input id="q" type="search" placeholder="Search games" autocomplete="off">' +
+          '</form>' +
+        '</div>' +
+      '</section>';
+
+    const recentGames = recents.map(id => GAMES.find(g => g.id === id)).filter(Boolean).slice(0, 6);
+    const favGames = favs.map(id => GAMES.find(g => g.id === id)).filter(Boolean);
+
+    if (recentGames.length) addSection('Recently played', recentGames);
+    if (favGames.length) addSection('Favorites', favGames);
+    addSection('All games', GAMES.slice(0, 10), true);
+
+    Bedrock.paint(document.getElementById('heroArt'), 'hero', { cell: 10, tint: [0, 0, 0] });
+
+    document.getElementById('heroSearch').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = document.getElementById('q').value.trim();
+      location.hash = '#/games' + (q ? '?q=' + encodeURIComponent(q) : '');
+    });
+  }
+
+  function addSection(title, list, withLink) {
+    const head = document.createElement('div');
+    head.className = 'section-head';
+    head.innerHTML = '<h2></h2>' + (withLink ? '<a href="#/games">View all</a>' : '');
+    head.querySelector('h2').textContent = title;
+    view.appendChild(head);
+    const g = grid(list, ['', '']);
+    view.appendChild(g);
+    paintTiles(g);
+  }
+
+  function renderGames(params) {
+    const state = { cat: params.get('cat') || 'all', q: params.get('q') || '' };
+
+    view.innerHTML =
+      '<div class="library-head">' +
+        '<h1>Games</h1>' +
+        '<form class="search" role="search" onsubmit="return false">' + SEARCH +
+          '<label class="sr-only" for="lib-q">Search games</label>' +
+          '<input id="lib-q" type="search" placeholder="Search games" autocomplete="off">' +
+        '</form>' +
+      '</div>' +
+      '<div class="chips" id="chips" role="group" aria-label="Category"></div>' +
+      '<div id="results"></div>';
+
+    const qInput = document.getElementById('lib-q');
+    qInput.value = state.q;
+
+    const chips = document.getElementById('chips');
+    CATS.concat([{ id: 'favs', label: 'Favorites' }]).forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = c.label; b.dataset.id = c.id;
+      b.addEventListener('click', () => { state.cat = c.id; update(); });
+      chips.appendChild(b);
+    });
+
+    function update() {
+      chips.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === state.cat)));
+      const q = qInput.value.trim().toLowerCase();
+      let list = GAMES.filter(g =>
+        (state.cat === 'all' || (state.cat === 'favs' ? favs.includes(g.id) : g.cat === state.cat)) &&
+        (!q || g.name.toLowerCase().includes(q) || g.desc.toLowerCase().includes(q) || g.cat.includes(q)));
+      const empty = state.cat === 'favs' && !q
+        ? ['No favorites yet', 'Select the star on a game to save it here.']
+        : ['No games match', 'Try a different search or category.'];
+      const res = document.getElementById('results');
+      res.innerHTML = '';
+      const g = grid(list, empty);
+      res.appendChild(g);
+      paintTiles(g);
+    }
+    qInput.addEventListener('input', update);
+    update();
+    if (state.q) qInput.focus();
+  }
+
+  /* ---------- router ---------- */
+  function render() {
+    const raw = location.hash.replace(/^#\/?/, '') || 'home';
+    const [route, query] = raw.split('?');
+    const params = new URLSearchParams(query || '');
+    const name = route === 'games' ? 'games' : 'home';
+    document.querySelectorAll('.nav a').forEach(a => {
+      if (a.dataset.route === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    document.title = name === 'games' ? 'Games – Bedrock' : 'Bedrock';
+    if (name === 'games') renderGames(params); else renderHome();
+    window.scrollTo(0, 0);
+  }
+  addEventListener('hashchange', render);
+  render();
+
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => {
+    const hero = document.getElementById('heroArt');
+    if (hero) Bedrock.paint(hero, 'hero', { cell: 10, tint: [0, 0, 0] });
+  }, 150); });
+
+  /* ---------- quick exit ---------- */
+  function quickExit() { location.replace('https://www.google.com/'); }
+  document.getElementById('exit').addEventListener('click', quickExit);
+  document.addEventListener('keydown', (e) => {
+    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName);
+    if (e.key === '`' && !typing) quickExit();
+  });
+})();
+</script>
+</body>
+</html>

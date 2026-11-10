@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bedrock</title>
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="gate">
+  <canvas class="bedrock-bg" id="bg" aria-hidden="true"></canvas>
+
+  <form class="gate-card" id="form" autocomplete="off">
+    <img src="favicon.png" alt="">
+    <h1>Bedrock</h1>
+    <p>Enter the access key to continue.</p>
+    <label class="sr-only" for="key">Access key</label>
+    <input class="field" id="key" type="password" placeholder="Access key" autocomplete="off" required>
+    <button class="btn btn-primary" id="go" type="submit">Enter</button>
+    <p class="gate-msg" id="msg" role="alert"></p>
+  </form>
+
+  <div class="gate-credit">Made by James George</div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+(function () {
+  // Add or change keys here. Matching ignores upper/lower case.
+  const KEYS = ['6-7', 'jamb0ne', '0bs1d14n', 'b3dr0ck'];
+
+  if (Bedrock.hasAccess()) { location.replace('portal.html'); return; }
+
+  const bg = document.getElementById('bg');
+  function paintBg() { Bedrock.paint(bg, 'gate', { cell: 8, tint: [0, 0, 0] }); }
+  paintBg();
+  let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(paintBg, 150); });
+
+  const form = document.getElementById('form');
+  const input = document.getElementById('key');
+  const msg = document.getElementById('msg');
+  const go = document.getElementById('go');
+  input.focus();
+
+  input.addEventListener('input', () => { input.classList.remove('bad'); msg.textContent = ''; });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const k = input.value.trim().toLowerCase();
+    if (KEYS.includes(k)) {
+      Bedrock.grant();
+      go.disabled = true;
+      location.href = 'portal.html';
+    } else {
+      input.classList.add('bad');
+      msg.textContent = 'That key isn’t valid. Check it and try again.';
+      input.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>
