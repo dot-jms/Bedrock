@@ -57,6 +57,9 @@
 (function () {
   // Where Bedrock Games is hosted (the GitHub Pages address, not the repo page).
   const GAMES_URL = 'https://dot-jms.github.io/Bedrock-games/';
+  // Where Nexus is hosted.
+  const NEXUS_URL = 'https://dot-jms.github.io/Nexus-/';
+  const NEWS_KEY = 'bedrock_news_nexus_1';
   // Bedrock Games only opens with a short-lived signed code from here (see gate.js in that repo).
   const SALT = 'bdrk-ca45991a75b798231a49a3df';
   function hash(str) {
@@ -82,8 +85,17 @@
   const PAD = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4"/><circle cx="16" cy="11.5" r=".7"/><circle cx="18.5" cy="13.5" r=".7"/></svg>';
 
   function renderHome() {
+    let seen = false;
+    try { seen = !!localStorage.getItem(NEWS_KEY); } catch (_) {}
     view.innerHTML =
       '<div class="home">' +
+        (seen ? '' :
+          '<div class="news" id="news">' +
+            '<div class="news-text"><strong>Bedrock has moved into Nexus</strong>' +
+            '<span>Chat with friends, join servers and start calls in Nexus.</span></div>' +
+            '<a class="launch sm" id="newsGo" href="' + NEXUS_URL + '" target="_blank" rel="noopener noreferrer">OPEN NEXUS</a>' +
+            '<button class="news-x" id="newsX" type="button" aria-label="Dismiss">\u00d7</button>' +
+          '</div>') +
         '<h2>Welcome back</h2>' +
         '<p class="lead">Bedrock Games opens from the Games tab in its own about:blank tab.</p>' +
         '<div class="cta"><a class="launch sm" href="#/games">OPEN GAMES</a></div>' +
@@ -93,6 +105,12 @@
           '<li><span>Go to Games</span><kbd>Alt + 2</kbd></li>' +
         '</ul></div>' +
       '</div>';
+    const news = document.getElementById('news');
+    if (news) {
+      const dismiss = () => { try { localStorage.setItem(NEWS_KEY, '1'); } catch (_) {} news.remove(); };
+      document.getElementById('newsX').addEventListener('click', dismiss);
+      document.getElementById('newsGo').addEventListener('click', () => setTimeout(dismiss, 0));
+    }
   }
 
   function renderGames() {
