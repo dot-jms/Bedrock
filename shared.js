@@ -5,7 +5,7 @@
 
   function space(canvas) {
     const ctx = canvas.getContext('2d');
-    let W, H, stars = [], blobs = [];
+    let W, H, stars = [], blobs = [], raf = 0;
     const rand = (a, b) => Math.random() * (b - a) + a;
 
     function size() {
@@ -50,17 +50,28 @@
         ctx.fillStyle = 'rgba(' + s.c + ',' + (0.25 + 0.75 * s.z * tw).toFixed(3) + ')';
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (0.6 + s.z * 0.6), 0, 6.283); ctx.fill();
       }
-      if (!reduce && !document.hidden) requestAnimationFrame(frame);
+      if (!reduce && !document.hidden) raf = requestAnimationFrame(frame);
     }
 
-    size(); requestAnimationFrame(frame);
+    size(); raf = requestAnimationFrame(frame);
     let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(size, 150); });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && !reduce) requestAnimationFrame(frame); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !reduce) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); } });
   }
 
   window.Bedrock = {
     hasAccess() { try { return localStorage.getItem(KEY) === 'granted'; } catch (_) { return false; } },
     grant() { try { localStorage.setItem(KEY, 'granted'); } catch (_) {} },
-    space
+    space,
+    particles(box, n) {
+      if (reduce) return;
+      for (let i = 0; i < (n || 16); i++) {
+        const d = document.createElement('div');
+        d.className = 'particle';
+        d.style.left = Math.random() * 100 + '%';
+        d.style.animationDuration = (14 + Math.random() * 12) + 's';
+        d.style.animationDelay = (-Math.random() * 20) + 's';
+        box.appendChild(d);
+      }
+    }
   };
 })();

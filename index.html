@@ -7,25 +7,32 @@
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <canvas id="space" aria-hidden="true"></canvas>
-<div class="glow" aria-hidden="true"></div>
+<div class="orbital-ring" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="particles" id="particles" aria-hidden="true"></div>
 
-<main class="stage">
-  <form class="gate-card glass" id="form" autocomplete="off">
-    <img src="favicon.png" alt="">
-    <h1 class="grad-text">BEDROCK</h1>
-    <p id="lead">Enter your access key to continue.</p>
+<main class="auth-wrap">
+  <form class="auth-card glass-card ring enter" id="form" autocomplete="off">
+    <h1 class="auth-title grad-title">BEDROCK</h1>
+    <p class="auth-credit">made by james george</p>
+    <p class="auth-sub" id="sub">Enter your access key to unlock the portal</p>
+
     <label class="sr-only" for="key">Access key</label>
-    <input class="field" id="key" type="password" placeholder="ACCESS KEY" autocomplete="off" required>
-    <button class="btn btn-primary" id="go" type="submit">Enter</button>
-    <p class="gate-msg" id="msg" role="alert"></p>
+    <input id="key" class="key-input" type="password" placeholder="ACCESS KEY" autocomplete="off" required>
+    <button id="go" class="launch" type="submit">LAUNCH BEDROCK</button>
+
+    <div class="status-row" aria-live="polite">
+      <div class="loading" id="loading"><div class="spinner"></div><span>Authenticating...</span></div>
+      <div class="success" id="ok">Access granted. Launching Bedrock...</div>
+      <div class="error" id="err">Invalid access key. Please try again.</div>
+    </div>
   </form>
 </main>
-<div class="credit">Made by James George</div>
 
 <script src="shared.js"></script>
 <script>
@@ -34,55 +41,63 @@
   const KEYS = ['6-7', 'jamb0ne', '0bs1d14n', 'b3dr0ck'];
 
   Bedrock.space(document.getElementById('space'));
+  Bedrock.particles(document.getElementById('particles'), 16);
 
   const form = document.getElementById('form');
   const input = document.getElementById('key');
-  const msg = document.getElementById('msg');
   const go = document.getElementById('go');
-  const lead = document.getElementById('lead');
+  const loading = document.getElementById('loading');
+  const ok = document.getElementById('ok');
+  const err = document.getElementById('err');
 
-  // Opens Bedrock in an about:blank tab and closes this one.
+  // Open Bedrock in an about:blank tab, then close this one.
+  // The tab is opened immediately so the browser treats it as the result of the click.
   function launch() {
     const portal = new URL('portal.html', location.href).href;
     const icon = new URL('favicon.png', location.href).href;
     const tab = window.open('about:blank', '_blank');
-    if (!tab) {                       // pop-up blocked: open here instead
-      location.href = portal;
-      return;
-    }
-    tab.document.open();
-    tab.document.write(
-      '<!doctype html><html><head><meta charset="utf-8"><title>Bedrock</title>' +
-      '<link rel="icon" href="' + icon + '">' +
-      '<style>html,body{margin:0;height:100%;background:#04040b;overflow:hidden}' +
-      'iframe{border:0;width:100%;height:100%;display:block}</style></head>' +
-      '<body><iframe src="' + portal + '" allow="fullscreen"></iframe></body></html>'
-    );
-    tab.document.close();
-    try { setTimeout(() => window.close(), 400); } catch (_) {}
+    if (!tab) { location.href = portal; return; }   // pop-ups blocked: open here instead
+
+    setTimeout(() => {
+      tab.document.open();
+      tab.document.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>Bedrock</title>' +
+        '<link rel="icon" href="' + icon + '">' +
+        '<style>html,body{margin:0;height:100%;background:#04040a;overflow:hidden}' +
+        'iframe{border:0;width:100%;height:100%;display:block}</style></head>' +
+        '<body><iframe src="' + portal + '" allow="fullscreen"></iframe></body></html>'
+      );
+      tab.document.close();
+      try { window.close(); } catch (_) {}
+    }, 800);
   }
 
-  if (Bedrock.hasAccess()) {
-    // Already signed in on this browser: no key needed, but opening a tab needs a click.
+  const signedIn = Bedrock.hasAccess();
+  if (signedIn) {
     input.hidden = true; input.required = false;
-    lead.textContent = 'You\u2019re signed in.';
-    go.textContent = 'Open Bedrock';
-    go.focus();
+    document.getElementById('sub').textContent = 'You’re signed in.';
   } else {
     input.focus();
   }
 
-  input.addEventListener('input', () => { input.classList.remove('bad'); msg.textContent = ''; });
+  input.addEventListener('input', () => err.classList.remove('show'));
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (Bedrock.hasAccess() || KEYS.includes(input.value.trim().toLowerCase())) {
+    ok.classList.remove('show'); err.classList.remove('show');
+    if (signedIn || KEYS.includes(input.value.trim().toLowerCase())) {
       Bedrock.grant();
+      go.disabled = true;
+      loading.classList.add('on');
+      setTimeout(() => { loading.classList.remove('on'); ok.classList.add('show'); }, 450);
       launch();
     } else {
-      input.classList.add('bad');
-      msg.textContent = 'That key isn\u2019t valid. Check it and try again.';
-      input.select();
+      go.disabled = true;
+      loading.classList.add('on');
+      setTimeout(() => {
+        loading.classList.remove('on'); go.disabled = false;
+        err.classList.add('show'); input.select();
+      }, 600);
     }
   });
 })();
