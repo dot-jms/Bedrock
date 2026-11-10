@@ -57,6 +57,23 @@
 (function () {
   // Where Bedrock Games is hosted (the GitHub Pages address, not the repo page).
   const GAMES_URL = 'https://dot-jms.github.io/Bedrock-games/';
+  // Bedrock Games only opens with a short-lived signed code from here (see gate.js in that repo).
+  const SALT = 'bdrk-ca45991a75b798231a49a3df';
+  function hash(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0, ch; i < str.length; i++) {
+      ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  function launchUrl() {
+    const t = Date.now().toString(36);
+    return GAMES_URL + '#bg=' + t + '.' + hash(t + SALT);
+  }
 
   const view = document.getElementById('view');
   Bedrock.space(document.getElementById('space'));
@@ -85,16 +102,21 @@
         '<h2 class="grad-title">Bedrock Games</h2>' +
         '<p class="lead">Your game library, opened in its own about:blank tab.</p>' +
         '<button class="launch xl" id="launchGames" type="button">' + PAD + '<span>LAUNCH BEDROCK GAMES</span></button>' +
-        '<p class="note">Tab didn\u2019t open? <a href="' + GAMES_URL + '" target="_blank" rel="noopener noreferrer">Open it directly</a></p>' +
+        '<p class="note">Tab didn\u2019t open? <a href="#/games" id="openDirect">Open it directly</a></p>' +
       '</div>';
     document.getElementById('launchGames').addEventListener('click', launchGames);
+    document.getElementById('openDirect').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(launchUrl(), '_blank', 'noopener,noreferrer');
+    });
   }
 
   function launchGames() {
     const icon = new URL('bedrockgamesfavicon.png', location.href).href;
+    const url = launchUrl();
     const tab = window.open('about:blank', '_blank');
     if (!tab) {                                   // pop-ups blocked: open the site directly
-      if (!window.open(GAMES_URL, '_blank', 'noopener,noreferrer')) window.top.location.href = GAMES_URL;
+      if (!window.open(url, '_blank', 'noopener,noreferrer')) window.top.location.href = url;
       return;
     }
     tab.document.open();
@@ -103,7 +125,7 @@
       '<link rel="icon" href="' + icon + '">' +
       '<style>html,body{margin:0;height:100%;background:#04040a;overflow:hidden}' +
       'iframe{border:0;width:100%;height:100%;display:block}</style></head>' +
-      '<body><iframe src="' + GAMES_URL + '" allow="fullscreen; autoplay; gamepad"></iframe></body></html>'
+      '<body><iframe src="' + url + '" allow="fullscreen; autoplay; gamepad"></iframe></body></html>'
     );
     tab.document.close();
   }
